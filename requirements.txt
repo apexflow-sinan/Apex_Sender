@@ -1,0 +1,10 @@
+PyQt6
+qtawesome
+pyinstaller
+Pillow
+qrcode[pil]
+Flask
+requests
+psutil
+# Windows-specific dependencies (install only on Windows)
+pywin32; sys_platform == "win32"

@@ -1,0 +1,7 @@
+PyQt6
+qtawesome
+pyinstaller
+Pillow
+qrcode[pil]
+Flask
+psutil

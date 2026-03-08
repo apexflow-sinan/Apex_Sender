@@ -1,0 +1,87 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Logs
+*.log
+logs/
+
+# User Data & Settings
+settings.json
+history.json
+*.db
+*.sqlite
+
+# Build artifacts
+*.exe
+*.spec
+build_output/
+ApexSenderApp/
+web/node_modules/
+web/build/
+web/.flutter-plugins
+web/.dart_tool/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Game Data (user-specific)
+ApexGames/data/scores.json
+ApexGames/data/users.json
+
+# Certificates
+*.pem
+*.key
+*.crt
+
+# Excel files (if temporary)
+~$*.xlsx
+
+# OS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Large folders
+ApexGames/
+venv/
