@@ -35,14 +35,12 @@ class WebTab(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Title
-        title = QLabel("🌐 الوصول عبر الويب")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; margin: 20px;")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        self.title_label = QLabel("🌐 الوصول عبر الويب")
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.title_label)
         
         # Status
         self.status_label = QLabel("الخادم متوقف")
-        self.status_label.setStyleSheet("font-size: 16px; color: #e74c3c; margin: 10px;")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.status_label)
         
@@ -54,10 +52,6 @@ class WebTab(QWidget):
         
         # URL (clickable)
         self.url_label = QLabel()
-        self.url_label.setStyleSheet(
-            "font-size: 18px; font-weight: bold; color: #3498db; margin: 10px; "
-            "text-decoration: underline;"
-        )
         self.url_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.url_label.setVisible(False)
         self.url_label.setOpenExternalLinks(True)
@@ -70,24 +64,7 @@ class WebTab(QWidget):
         self.start_btn.setIcon(qta.icon('fa5s.play', color='#27ae60'))
         self.start_btn.clicked.connect(self.start_server)
         self.start_btn.setMinimumHeight(40)
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: 2px solid #27ae60;
-                color: #27ae60;
-                border-radius: 8px;
-                padding: 8px 16px;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #27ae60;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #229954;
-            }
-        """)
+        self.start_btn.setObjectName("webStartBtn")
         btn_layout.addWidget(self.start_btn)
         
         self.stop_btn = QPushButton("إيقاف الخادم")
@@ -95,38 +72,104 @@ class WebTab(QWidget):
         self.stop_btn.clicked.connect(self.stop_server)
         self.stop_btn.setMinimumHeight(40)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: 2px solid #e74c3c;
-                color: #e74c3c;
-                border-radius: 8px;
-                padding: 8px 16px;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #e74c3c;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #c0392b;
-            }
-            QPushButton:disabled {
-                border-color: #95a5a6;
-                color: #95a5a6;
-                background-color: transparent;
-            }
-        """)
+        self.stop_btn.setObjectName("webStopBtn")
         btn_layout.addWidget(self.stop_btn)
         
         layout.addLayout(btn_layout)
         
         # Info
-        info = QLabel("📱 امسح رمز QR أو افتح الرابط في متصفح الموبايل")
-        info.setStyleSheet("color: #7f8c8d; margin: 20px;")
-        info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(info)
+        self.info_label = QLabel("📱 امسح رمز QR أو افتح الرابط في متصفح الموبايل")
+        self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.info_label)
+        
+        self.apply_theme()
+    
+    def apply_theme(self):
+        """Apply theme to web tab"""
+        is_dark = self.settings_manager.get("dark_mode", False)
+        
+        if is_dark:
+            title_style = "font-size: 24px; font-weight: bold; margin: 20px; color: #cdd6f4;"
+            info_style = "color: #8b949e; margin: 20px;"
+            link_color = "#58a6ff"
+            green_border = "#238636"
+            green_hover = "#2ea043"
+            green_pressed = "#1a7f37"
+            red_border = "#da3633"
+            red_hover = "#b62324"
+            red_pressed = "#a11d1d"
+            disabled_color = "#484f58"
+            green_text = "#3fb950"
+            red_text = "#f85149"
+        else:
+            title_style = "font-size: 24px; font-weight: bold; margin: 20px; color: #2c3e50;"
+            info_style = "color: #7f8c8d; margin: 20px;"
+            link_color = "#3498db"
+            green_border = "#27ae60"
+            green_hover = "#27ae60"
+            green_pressed = "#229954"
+            red_border = "#e74c3c"
+            red_hover = "#e74c3c"
+            red_pressed = "#c0392b"
+            disabled_color = "#95a5a6"
+            green_text = "#27ae60"
+            red_text = "#e74c3c"
+        
+        self.title_label.setStyleSheet(title_style)
+        self.info_label.setStyleSheet(info_style)
+        
+        # Update status color
+        if self.server_running:
+            self.status_label.setStyleSheet(f"font-size: 16px; color: {green_text}; margin: 10px;")
+        else:
+            self.status_label.setStyleSheet(f"font-size: 16px; color: {red_text}; margin: 10px;")
+        
+        # Update URL link color
+        if hasattr(self, 'current_url'):
+            self.url_label.setText(f'<a href="{self.current_url}" style="color: {link_color};">{self.current_url}</a>')
+        
+        self.start_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 2px solid {green_border};
+                color: {green_text};
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                background-color: {green_hover};
+                color: white;
+            }}
+            QPushButton:pressed {{
+                background-color: {green_pressed};
+            }}
+        """)
+        
+        self.stop_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 2px solid {red_border};
+                color: {red_text};
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                background-color: {red_hover};
+                color: white;
+            }}
+            QPushButton:pressed {{
+                background-color: {red_pressed};
+            }}
+            QPushButton:disabled {{
+                border-color: {disabled_color};
+                color: {disabled_color};
+                background-color: transparent;
+            }}
+        """)
     
     def start_server(self):
         """Start web server"""
@@ -160,13 +203,13 @@ class WebTab(QWidget):
                         self.loading.hide_indicator()
                         self.start_btn.setEnabled(True)
                         self.status_label.setText("تم الإلغاء")
-                        self.status_label.setStyleSheet("font-size: 16px; color: #e74c3c; margin: 10px;")
+                        self.apply_theme()
                         return
                 else:
                     self.loading.hide_indicator()
                     self.start_btn.setEnabled(True)
                     self.status_label.setText("فشل التشغيل")
-                    self.status_label.setStyleSheet("font-size: 16px; color: #e74c3c; margin: 10px;")
+                    self.apply_theme()
                     QMessageBox.critical(self, "فشل التشغيل", f"{port_msg}\n\nلا يوجد منافذ بديلة.")
                     return
             
@@ -191,7 +234,7 @@ class WebTab(QWidget):
             # Update UI
             self.server_running = True
             self.status_label.setText("✅ الخادم يعمل")
-            self.status_label.setStyleSheet("font-size: 16px; color: #27ae60; margin: 10px;")
+            self.apply_theme()
             
             # Show QR (smaller size)
             qr_data = generate_qr_code(url, (180, 180))
@@ -200,8 +243,6 @@ class WebTab(QWidget):
             self.qr_label.setPixmap(qr_pixmap)
             self.qr_label.setVisible(True)
             
-            # Show URL (clickable)
-            self.url_label.setText(f'<a href="{url}" style="color: #3498db;">{url}</a>')
             self.url_label.setVisible(True)
             self.current_url = url
             
@@ -220,7 +261,7 @@ class WebTab(QWidget):
             self.loading.hide_indicator()
             self.start_btn.setEnabled(True)
             self.status_label.setText("فشل التشغيل")
-            self.status_label.setStyleSheet("font-size: 14px; color: #e74c3c; margin: 10px;")
+            self.apply_theme()
             
             # عرض رسالة خطأ مفصلة
             error_details = str(e)
@@ -251,7 +292,7 @@ class WebTab(QWidget):
         # Update UI
         self.server_running = False
         self.status_label.setText("الخادم متوقف")
-        self.status_label.setStyleSheet("font-size: 16px; color: #e74c3c; margin: 10px;")
+        self.apply_theme()
         self.qr_label.setVisible(False)
         self.url_label.setVisible(False)
         self.start_btn.setEnabled(True)

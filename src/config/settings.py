@@ -86,26 +86,18 @@ HISTORY_FILE = os.path.join(USER_DATA_DIR, "history.json")
 
 # Get platform-specific icon file
 def get_icon_file():
-    """Get platform-specific icon file"""
+    """Get icon file path"""
     try:
-        import platform
-        system = platform.system().lower()
-        
-        if system == "windows":
-            icon_name = "app_icon_multi.ico"
-        elif system == "darwin":  # macOS
-            icon_name = "app_icon_multi.icns"  # macOS uses .icns
-        else:  # Linux
-            icon_name = "app_icon_multi.png"   # Linux uses .png
-        
-        icon_path = os.path.join(ASSETS_DIR, "icons", icon_name)
-        # Fallback to .ico if specific format not found
-        if not os.path.exists(icon_path):
-            icon_path = os.path.join(ASSETS_DIR, "icons", "app_icon_multi.ico")
-        
-        return icon_path
+        # Try Icon.png first
+        icon_path = os.path.join(ASSETS_DIR, "icons", "Icon.png")
+        if os.path.exists(icon_path):
+            return icon_path
+        # Fallback to .ico
+        icon_path = os.path.join(ASSETS_DIR, "icons", "Icon.ico")
+        if os.path.exists(icon_path):
+            return icon_path
+        return ""
     except Exception:
-        # Return empty string if there's any error
         return ""
 
 ICON_FILE = get_icon_file()

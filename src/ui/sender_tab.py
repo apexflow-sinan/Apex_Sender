@@ -3,7 +3,7 @@ import threading
 import qtawesome as qta
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QProgressBar, QFrame, QFileDialog, QMessageBox, QComboBox
+    QPushButton, QProgressBar, QFrame, QFileDialog, QMessageBox, QComboBox, QTextEdit
 )
 from PyQt6.QtCore import Qt, pyqtSlot
 
@@ -77,30 +77,63 @@ class SenderTab(QWidget):
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.send_file_btn = QPushButton(qta.icon('fa5s.file'), " إرسال ملف")
         self.send_file_btn.clicked.connect(self.send_file)
         self.send_file_btn.setEnabled(False)
+        self.send_file_btn.setMaximumWidth(180)
         btn_layout.addWidget(self.send_file_btn)
         
         self.send_files_btn = QPushButton(qta.icon('fa5s.copy'), " ملفات متعددة")
         self.send_files_btn.clicked.connect(self.send_multiple_files)
         self.send_files_btn.setEnabled(False)
+        self.send_files_btn.setMaximumWidth(180)
         btn_layout.addWidget(self.send_files_btn)
         
         self.send_folder_btn = QPushButton(qta.icon('fa5s.folder'), " إرسال مجلد")
         self.send_folder_btn.clicked.connect(self.send_folder)
         self.send_folder_btn.setEnabled(False)
+        self.send_folder_btn.setMaximumWidth(180)
         btn_layout.addWidget(self.send_folder_btn)
         
+        self.send_text_btn = QPushButton(qta.icon('fa5s.comment'), " إرسال نص")
+        self.send_text_btn.clicked.connect(self._toggle_text_input)
+        self.send_text_btn.setEnabled(False)
+        self.send_text_btn.setMaximumWidth(180)
+        btn_layout.addWidget(self.send_text_btn)
+        
         layout.addLayout(btn_layout)
+        
+        # Text send section
+        self.text_card = QFrame(objectName="card")
+        self.text_card.setVisible(False)
+        text_card_layout = QVBoxLayout(self.text_card)
+        self.text_input = QTextEdit()
+        self.text_input.setPlaceholderText("اكتب النص هنا...")
+        self.text_input.setMaximumHeight(100)
+        text_card_layout.addWidget(self.text_input)
+        text_btn_row = QHBoxLayout()
+        send_text_now_btn = QPushButton(qta.icon('fa5s.paper-plane'), " إرسال")
+        send_text_now_btn.setMaximumWidth(120)
+        send_text_now_btn.clicked.connect(self._do_send_text)
+        text_btn_row.addWidget(send_text_now_btn)
+        close_text_btn = QPushButton(qta.icon('fa5s.times'), " إغلاق")
+        close_text_btn.setObjectName("CancelButton")
+        close_text_btn.setMaximumWidth(120)
+        close_text_btn.clicked.connect(lambda: self.text_card.setVisible(False))
+        text_btn_row.addWidget(close_text_btn)
+        text_btn_row.addStretch()
+        text_card_layout.addLayout(text_btn_row)
+        layout.addWidget(self.text_card)
         
         # Cancel button
         self.cancel_btn = QPushButton(qta.icon('fa5s.times'), " إلغاء")
         self.cancel_btn.setObjectName("CancelButton")
         self.cancel_btn.clicked.connect(self.cancel_transfer)
         self.cancel_btn.setVisible(False)
-        layout.addWidget(self.cancel_btn)
+        self.cancel_btn.setMaximumWidth(200)
+        layout.addWidget(self.cancel_btn, alignment=Qt.AlignmentFlag.AlignCenter)
         
         # Progress
         self.progress_bar = QProgressBar()
@@ -118,6 +151,7 @@ class SenderTab(QWidget):
         self.send_file_btn.setEnabled(is_complete)
         self.send_files_btn.setEnabled(is_complete)
         self.send_folder_btn.setEnabled(is_complete)
+        self.send_text_btn.setEnabled(is_complete)
     
     def on_ip_selected(self, ip):
         """Handle IP selection from combo"""
@@ -205,8 +239,9 @@ class SenderTab(QWidget):
     def _on_compress_complete(self, zip_path: str):
         """Handle compression complete (called in main thread)"""
         self.progress_bar.setValue(100)
-        self.progress_label.setText("تم ضغط المجلد")
+        self.progress_label.setText("تم ضغط المجلد، جاري الإرسال...")
         self.log_callback(f"تم ضغط المجلد")
+        self.is_sending = False  # إعادة تعيين قبل الإرسال
         self._send_files_internal([zip_path], is_temp=True)
     
     @pyqtSlot(str)
@@ -323,6 +358,7 @@ class SenderTab(QWidget):
             self.send_file_btn.setEnabled(False)
             self.send_files_btn.setEnabled(False)
             self.send_folder_btn.setEnabled(False)
+            self.send_text_btn.setEnabled(False)
     
     def _activate_sender_tab(self):
         """Activate sender tab if not active"""
@@ -337,20 +373,28 @@ class SenderTab(QWidget):
         from PyQt6.QtWidgets import QLabel
         from PyQt6.QtCore import QTimer, Qt
         
+        is_dark = self.settings_manager.get("dark_mode", False)
+        if is_dark:
+            bg = "#238636"
+            border = "#2ea043"
+        else:
+            bg = "#27ae60"
+            border = "#2ecc71"
+        
         notification = QLabel(message, self)
-        notification.setStyleSheet("""
-            QLabel {
-                background-color: rgba(39, 174, 96, 0.9);
+        notification.setStyleSheet(f"""
+            QLabel {{
+                background-color: {bg};
                 color: white;
                 padding: 15px 30px;
                 border-radius: 8px;
+                border: 2px solid {border};
                 font-size: 14px;
                 font-weight: bold;
-            }
+            }}
         """)
         notification.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        notification.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
-        notification.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        notification.setWindowFlags(Qt.WindowType.ToolTip)
         
         # Position at top center of parent window
         parent = self.window()
@@ -360,6 +404,26 @@ class SenderTab(QWidget):
         notification.show()
         
         QTimer.singleShot(3000, notification.deleteLater)
+    
+    def _toggle_text_input(self):
+        """Toggle text input visibility"""
+        self.text_card.setVisible(not self.text_card.isVisible())
+        if self.text_card.isVisible():
+            self.text_input.setFocus()
+    
+    def _do_send_text(self):
+        """Send text as a temp file with special marker"""
+        text = self.text_input.toPlainText().strip()
+        if not text:
+            QMessageBox.warning(self, "تنبيه", "اكتب نصاً أولاً")
+            return
+        import os, tempfile
+        tmp = os.path.join(tempfile.gettempdir(), "__APEX_TEXT__")
+        with open(tmp, 'w', encoding='utf-8') as f:
+            f.write(text)
+        self.text_card.setVisible(False)
+        self.text_input.clear()
+        self._send_files([tmp], is_temp=True)
     
     def cleanup(self):
         """Cleanup on close"""

@@ -77,20 +77,24 @@ class SenderTab(QWidget):
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.send_file_btn = QPushButton(qta.icon('fa5s.file'), " إرسال ملف")
         self.send_file_btn.clicked.connect(self.send_file)
         self.send_file_btn.setEnabled(False)
+        self.send_file_btn.setMaximumWidth(180)
         btn_layout.addWidget(self.send_file_btn)
         
         self.send_files_btn = QPushButton(qta.icon('fa5s.copy'), " ملفات متعددة")
         self.send_files_btn.clicked.connect(self.send_multiple_files)
         self.send_files_btn.setEnabled(False)
+        self.send_files_btn.setMaximumWidth(180)
         btn_layout.addWidget(self.send_files_btn)
         
         self.send_folder_btn = QPushButton(qta.icon('fa5s.folder'), " إرسال مجلد")
         self.send_folder_btn.clicked.connect(self.send_folder)
         self.send_folder_btn.setEnabled(False)
+        self.send_folder_btn.setMaximumWidth(180)
         btn_layout.addWidget(self.send_folder_btn)
         
         layout.addLayout(btn_layout)
@@ -100,7 +104,8 @@ class SenderTab(QWidget):
         self.cancel_btn.setObjectName("CancelButton")
         self.cancel_btn.clicked.connect(self.cancel_transfer)
         self.cancel_btn.setVisible(False)
-        layout.addWidget(self.cancel_btn)
+        self.cancel_btn.setMaximumWidth(200)
+        layout.addWidget(self.cancel_btn, alignment=Qt.AlignmentFlag.AlignCenter)
         
         # Progress
         self.progress_bar = QProgressBar()
@@ -205,8 +210,9 @@ class SenderTab(QWidget):
     def _on_compress_complete(self, zip_path: str):
         """Handle compression complete (called in main thread)"""
         self.progress_bar.setValue(100)
-        self.progress_label.setText("تم ضغط المجلد")
+        self.progress_label.setText("تم ضغط المجلد، جاري الإرسال...")
         self.log_callback(f"تم ضغط المجلد")
+        self.is_sending = False  # إعادة تعيين قبل الإرسال
         self._send_files_internal([zip_path], is_temp=True)
     
     @pyqtSlot(str)
@@ -337,20 +343,28 @@ class SenderTab(QWidget):
         from PyQt6.QtWidgets import QLabel
         from PyQt6.QtCore import QTimer, Qt
         
+        is_dark = self.settings_manager.get("dark_mode", False)
+        if is_dark:
+            bg = "#238636"
+            border = "#2ea043"
+        else:
+            bg = "#27ae60"
+            border = "#2ecc71"
+        
         notification = QLabel(message, self)
-        notification.setStyleSheet("""
-            QLabel {
-                background-color: rgba(39, 174, 96, 0.9);
+        notification.setStyleSheet(f"""
+            QLabel {{
+                background-color: {bg};
                 color: white;
                 padding: 15px 30px;
                 border-radius: 8px;
+                border: 2px solid {border};
                 font-size: 14px;
                 font-weight: bold;
-            }
+            }}
         """)
         notification.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        notification.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
-        notification.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        notification.setWindowFlags(Qt.WindowType.ToolTip)
         
         # Position at top center of parent window
         parent = self.window()

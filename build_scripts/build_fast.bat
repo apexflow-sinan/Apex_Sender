@@ -36,7 +36,7 @@ echo [3/4] Building application (this will be much faster)...
 echo.
 python -m PyInstaller --noconfirm --onedir --windowed ^
     --name="ApexSender" ^
-    --icon="%CD%\assets\icons\app_icon_multi.ico" ^
+    --icon="%CD%\assets\icons\Icon.ico" ^
     --add-data="%CD%\src;src" ^
     --add-data="%CD%\assets;assets" ^
     --add-data="%CD%\web;web" ^

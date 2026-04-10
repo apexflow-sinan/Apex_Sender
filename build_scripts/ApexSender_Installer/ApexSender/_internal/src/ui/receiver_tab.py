@@ -85,15 +85,18 @@ class ReceiverTab(QWidget):
         
         # Action buttons
         action_layout = QHBoxLayout()
+        action_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.open_folder_btn = QPushButton(qta.icon('fa5s.folder-open'), " فتح مجلد الحفظ")
         self.open_folder_btn.clicked.connect(self.open_save_folder)
+        self.open_folder_btn.setMaximumWidth(200)
         action_layout.addWidget(self.open_folder_btn)
         
         self.delete_files_btn = QPushButton(qta.icon('fa5s.trash', color='white'), " حذف الملفات")
         self.delete_files_btn.setStyleSheet("background-color: #e74c3c; color: white;")
         self.delete_files_btn.clicked.connect(self.delete_files)
         self.delete_files_btn.setEnabled(len(self.received_files) > 0)
+        self.delete_files_btn.setMaximumWidth(200)
         action_layout.addWidget(self.delete_files_btn)
         
         layout.addLayout(action_layout)
@@ -381,10 +384,12 @@ class ReceiverTab(QWidget):
         btn_layout = QHBoxLayout()
         
         open_file_btn = QPushButton("فتح الملف")
+        open_file_btn.setMaximumWidth(120)
         open_file_btn.clicked.connect(lambda: open_file_or_folder(file_info["filepath"]))
         btn_layout.addWidget(open_file_btn)
         
         open_folder_btn = QPushButton("فتح المجلد")
+        open_folder_btn.setMaximumWidth(120)
         open_folder_btn.clicked.connect(lambda: open_file_or_folder(os.path.dirname(file_info["filepath"])))
         btn_layout.addWidget(open_folder_btn)
         

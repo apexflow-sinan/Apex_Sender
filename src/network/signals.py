@@ -11,3 +11,4 @@ class WorkerSignals(QObject):
     show_error = pyqtSignal(str, str)
     transfer_complete = pyqtSignal(bool, str, str)  # success, message, ip
     file_received = pyqtSignal(str, str)  # filename, filepath
+    text_received = pyqtSignal(str)  # text content

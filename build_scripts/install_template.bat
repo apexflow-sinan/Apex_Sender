@@ -34,7 +34,7 @@ echo Application files copied successfully.
 
 echo [3/3] Creating desktop shortcut...
 if exist "%INSTALL_DIR%\ApexSender.exe" (
-    powershell -ExecutionPolicy Bypass -Command "try { $WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP%\Apex Sender.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\ApexSender.exe'; $Shortcut.WorkingDirectory = '%INSTALL_DIR%'; if (Test-Path '%INSTALL_DIR%\_internal\assets\app_icon.ico') { $Shortcut.IconLocation = '%INSTALL_DIR%\_internal\assets\app_icon.ico' } else { $Shortcut.IconLocation = '%INSTALL_DIR%\ApexSender.exe' }; $Shortcut.Save(); exit 0 } catch { Write-Host 'Error: Could not create desktop shortcut.'; exit 1 }"
+    powershell -ExecutionPolicy Bypass -Command "try { $WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP%\Apex Sender.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\ApexSender.exe'; $Shortcut.WorkingDirectory = '%INSTALL_DIR%'; if (Test-Path '%INSTALL_DIR%\_internal\assets\icons\Icon.ico') { $Shortcut.IconLocation = '%INSTALL_DIR%\_internal\assets\icons\Icon.ico' } else { $Shortcut.IconLocation = '%INSTALL_DIR%\ApexSender.exe' }; $Shortcut.Save(); exit 0 } catch { Write-Host 'Error: Could not create desktop shortcut.'; exit 1 }"
     if %errorlevel% equ 0 (
         echo Desktop shortcut created successfully.
     ) else (

@@ -63,23 +63,35 @@ def add_pwa_headers(response):
 
 @app.route('/')
 def index():
-    """Default route - Bottom navigation (mobile-first)"""
-    return render_template('index_bottom_nav.html')
+    """Default route"""
+    from src.utils.network_utils import get_local_ip
+    ip = get_local_ip()
+    parts = ip.split('.')
+    return render_template('index_bottom_nav.html', ip_parts=parts, full_ip=ip, port=DEFAULT_PORT)
 
 @app.route('/bottom-nav')
 def bottom_nav():
     """Bottom navigation version (mobile-first)"""
-    return render_template('index_bottom_nav.html')
+    from src.utils.network_utils import get_local_ip
+    ip = get_local_ip()
+    parts = ip.split('.')
+    return render_template('index_bottom_nav.html', ip_parts=parts, full_ip=ip, port=DEFAULT_PORT)
 
 @app.route('/sidebar')
 def sidebar():
-    """Sidebar navigation version (modern web)"""
-    return render_template('index_sidebar.html')
+    """Sidebar navigation version"""
+    from src.utils.network_utils import get_local_ip
+    ip = get_local_ip()
+    parts = ip.split('.')
+    return render_template('index_bottom_nav.html', ip_parts=parts, full_ip=ip, port=DEFAULT_PORT)
 
 @app.route('/classic')
 def classic():
-    """Classic/Original version"""
-    return render_template('index.html')
+    """Classic version"""
+    from src.utils.network_utils import get_local_ip
+    ip = get_local_ip()
+    parts = ip.split('.')
+    return render_template('index_bottom_nav.html', ip_parts=parts, full_ip=ip, port=DEFAULT_PORT)
 
 @app.route('/api/network-info')
 def network_info():
@@ -218,26 +230,7 @@ def send_file():
         file.save(filepath)
         file_size = os.path.getsize(filepath)
         
-        # Send file with optimized settings
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(60)
-            # Optimize socket buffers
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2 * 1024 * 1024)  # 2MB
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2 * 1024 * 1024)  # 2MB
-            s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # Disable Nagle
-            s.connect((ip, port))
-            s.sendall(f"{original_filename}\n{file_size}\n".encode('utf-8'))
-            
-            # Use larger buffer for faster transfer
-            chunk_size = 256 * 1024  # 256KB chunks
-            with open(filepath, 'rb') as f:
-                sent = 0
-                while sent < file_size:
-                    chunk = f.read(chunk_size)
-                    if not chunk:
-                        break
-                    s.sendall(chunk)
-                    sent += len(chunk)
+        _send_via_socket(ip, port, original_filename, filepath, file_size)
         
         os.remove(filepath)
         return jsonify({'status': 'success', 'message': 'تم الإرسال بنجاح'})
@@ -248,9 +241,62 @@ def send_file():
             except:
                 pass
         import traceback
-        error_detail = traceback.format_exc()
-        print(f"Error sending file: {error_detail}")
+        print(f"Error sending file: {traceback.format_exc()}")
         return jsonify({'status': 'error', 'message': f'خطأ: {str(e)}'}), 500
+
+
+@app.route('/send-text', methods=['POST'])
+def send_text():
+    """Send text message to a device"""
+    filepath = None
+    try:
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        ip = data.get('ip', '').strip()
+        port = int(data.get('port', DEFAULT_PORT))
+        
+        if not text:
+            return jsonify({'status': 'error', 'message': 'النص فارغ'}), 400
+        if not ip:
+            return jsonify({'status': 'error', 'message': 'عنوان IP مطلوب'}), 400
+        
+        filepath = os.path.join(UPLOAD_FOLDER, '__APEX_TEXT__')
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(text)
+        file_size = os.path.getsize(filepath)
+        
+        _send_via_socket(ip, port, '__APEX_TEXT__', filepath, file_size)
+        
+        os.remove(filepath)
+        return jsonify({'status': 'success', 'message': 'تم إرسال النص بنجاح'})
+    except Exception as e:
+        if filepath and os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except:
+                pass
+        return jsonify({'status': 'error', 'message': f'خطأ: {str(e)}'}), 500
+
+
+def _send_via_socket(ip, port, filename, filepath, file_size):
+    """Send file via TCP socket"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(60)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2 * 1024 * 1024)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2 * 1024 * 1024)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        s.connect((ip, port))
+        s.sendall(f"{filename}\n{file_size}\n".encode('utf-8'))
+        
+        chunk_size = 256 * 1024
+        with open(filepath, 'rb') as f:
+            sent = 0
+            while sent < file_size:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                s.sendall(chunk)
+                sent += len(chunk)
 
 def start_server(port=8080, use_ssl=False):
     """Start the web server"""

@@ -122,8 +122,20 @@ class ReceiverThread(QObject):
                         continue
             
             if received == file_size:
-                self.signals.log_message.emit(f"تم حفظ {filename}")
-                self.signals.file_received.emit(filename, save_path)
+                # Check if it's a text message
+                if filename == '__APEX_TEXT__':
+                    try:
+                        import os as _os
+                        with open(save_path, 'r', encoding='utf-8') as tf:
+                            text_content = tf.read()
+                        _os.remove(save_path)
+                        self.signals.text_received.emit(text_content)
+                        self.signals.log_message.emit("تم استقبال رسالة نصية")
+                    except:
+                        self.signals.file_received.emit(filename, save_path)
+                else:
+                    self.signals.log_message.emit(f"تم حفظ {filename}")
+                    self.signals.file_received.emit(filename, save_path)
                 
                 # Check if sender is from same device
                 from src.utils.network_utils import get_local_ip

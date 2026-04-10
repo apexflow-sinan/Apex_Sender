@@ -14,6 +14,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 
 from src.config.settings import DEFAULT_PORT, ICON_FILE, WINDOW_WIDTH, WINDOW_HEIGHT, ANIMATION_DURATION
+from PyQt6.QtGui import QPixmap
 from src.config.styles import LIGHT_STYLESHEET, DARK_STYLESHEET
 from src.core.settings_manager import SettingsManager
 from src.core.status_manager import StatusManager, AppStatus
@@ -48,14 +49,20 @@ class MainWindow(QMainWindow):
     def setup_window(self):
         """Setup window properties"""
         self.setWindowTitle("Apex Sender")
-        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
         
-        # Center window on screen
-        from PyQt6.QtGui import QScreen
-        screen = QScreen.availableGeometry(self.screen())
-        x = (screen.width() - WINDOW_WIDTH) // 2
-        y = (screen.height() - WINDOW_HEIGHT) // 2
-        self.move(x, y)
+        # Restore saved window size/position or use defaults
+        w = self.settings_manager.get("window_width", WINDOW_WIDTH)
+        h = self.settings_manager.get("window_height", WINDOW_HEIGHT)
+        self.resize(w, h)
+        
+        saved_x = self.settings_manager.get("window_x", None)
+        saved_y = self.settings_manager.get("window_y", None)
+        if saved_x is not None and saved_y is not None:
+            self.move(saved_x, saved_y)
+        else:
+            from PyQt6.QtGui import QScreen
+            screen = QScreen.availableGeometry(self.screen())
+            self.move((screen.width() - w) // 2, (screen.height() - h) // 2)
         
         if os.path.exists(ICON_FILE):
             self.setWindowIcon(QIcon(ICON_FILE))
@@ -93,11 +100,12 @@ class MainWindow(QMainWindow):
         self.games_tab = games_widget
         
         # Add tabs with scroll areas
-        tabs.addTab(self.create_scrollable_tab(sender_widget), qta.icon('fa5s.upload'), "إرسال")
-        tabs.addTab(self.create_scrollable_tab(receiver_widget), qta.icon('fa5s.download'), "استقبال")
-        tabs.addTab(self.create_scrollable_tab(web_widget), qta.icon('fa5s.globe'), "Web")
-        tabs.addTab(self.create_scrollable_tab(games_widget), qta.icon('fa5s.gamepad'), "ألعاب ويب")
+        tabs.addTab(self.create_scrollable_tab(sender_widget), "إرسال")
+        tabs.addTab(self.create_scrollable_tab(receiver_widget), "استقبال")
+        tabs.addTab(self.create_scrollable_tab(web_widget), "Web")
+        tabs.addTab(self.create_scrollable_tab(games_widget), "ألعاب ويب")
         tabs.currentChanged.connect(self.on_tab_changed)
+        self.update_tab_icons()
         
         main_layout.addWidget(tabs)
         
@@ -245,7 +253,18 @@ class MainWindow(QMainWindow):
         # Title
         title_hbox = QHBoxLayout()
         title_hbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_hbox.addWidget(QLabel(pixmap=qta.icon('fa5s.rocket', color='white').pixmap(28, 28)))
+        
+        # Use app icon if available, fallback to rocket icon
+        icon_label = QLabel()
+        if os.path.exists(ICON_FILE):
+            pixmap = QPixmap(ICON_FILE)
+            if not pixmap.isNull():
+                icon_label.setPixmap(pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            else:
+                icon_label.setPixmap(qta.icon('fa5s.rocket', color='white').pixmap(48, 48))
+        else:
+            icon_label.setPixmap(qta.icon('fa5s.rocket', color='white').pixmap(48, 48))
+        title_hbox.addWidget(icon_label)
         title_hbox.addWidget(QLabel("Apex Sender", objectName="TitleLabel"))
         
         # IP
@@ -304,10 +323,19 @@ class MainWindow(QMainWindow):
         import time
         self.log_edit.append(f"[{time.strftime('%H:%M:%S')}] {msg}")
     
+    def update_tab_icons(self):
+        """Update tab icons based on current theme"""
+        is_dark = self.settings_manager.get("dark_mode", False)
+        color = '#cdd6f4' if is_dark else '#586069'
+        icons = ['fa5s.upload', 'fa5s.download', 'fa5s.globe', 'fa5s.gamepad']
+        for i, icon_name in enumerate(icons):
+            self.tabs.setTabIcon(i, qta.icon(icon_name, color=color))
+    
     def apply_theme(self):
         """Apply current theme"""
         is_dark = self.settings_manager.get("dark_mode", False)
         self.setStyleSheet(DARK_STYLESHEET if is_dark else LIGHT_STYLESHEET)
+        self.update_tab_icons()
     
     def create_status_bar(self):
         """Create status bar with Log, QR and Dark Mode"""
@@ -363,6 +391,9 @@ class MainWindow(QMainWindow):
         self.apply_theme()
         self.update_dark_mode_icon()
         self.update_menu_style()
+        # Update web tab theme
+        if hasattr(self, 'web_tab'):
+            self.web_tab.apply_theme()
     
     def animate_window(self):
         """Animate window appearance"""
@@ -459,6 +490,12 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Handle window close event"""
         try:
+            # Save window size and position
+            geo = self.geometry()
+            self.settings_manager.set("window_width", geo.width())
+            self.settings_manager.set("window_height", geo.height())
+            self.settings_manager.set("window_x", geo.x())
+            self.settings_manager.set("window_y", geo.y())
             # Cleanup sender tab
             if hasattr(self, 'sender_tab'):
                 self.sender_tab.cleanup()

@@ -5,6 +5,7 @@ QWidget {
     font-family: Segoe UI;
     font-size: 11pt;
     color: #2c3e50;
+    background-color: #f0f2f5;
 }
 QMainWindow {
     background-color: #f0f2f5;
@@ -28,8 +29,15 @@ QLabel {
     color: #1abc9c;
     padding-bottom: 10px;
 }
+QTabWidget {
+    background-color: #f0f2f5;
+}
 QTabWidget::pane {
     border: none;
+    background-color: #f0f2f5;
+}
+QTabBar {
+    background-color: #f0f2f5;
 }
 QTabBar::tab {
     background: #e1e4e8;
@@ -179,6 +187,7 @@ QWidget {
     font-family: Segoe UI;
     font-size: 11pt;
     color: #ecf0f1;
+    background-color: #1e1e1e;
 }
 QMainWindow {
     background-color: #1e1e1e;
