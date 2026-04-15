@@ -33,8 +33,13 @@ def get_linux_drives():
     
     return drives
 
+_HOME = os.path.expanduser('~')
+
+
 def get_open_filename(parent, title, start_dir=""):
     """Open file dialog with drive shortcuts on Linux"""
+    if not start_dir:
+        start_dir = _HOME
     if sys.platform.startswith('linux'):
         dialog = QFileDialog(parent, title)
         dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
@@ -57,6 +62,8 @@ def get_open_filename(parent, title, start_dir=""):
 
 def get_open_filenames(parent, title, start_dir=""):
     """Open multiple files dialog with drive shortcuts on Linux"""
+    if not start_dir:
+        start_dir = _HOME
     if sys.platform.startswith('linux'):
         dialog = QFileDialog(parent, title)
         dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
@@ -79,6 +86,8 @@ def get_open_filenames(parent, title, start_dir=""):
 
 def get_existing_directory(parent, title, start_dir=""):
     """Open directory dialog with drive shortcuts on Linux"""
+    if not start_dir:
+        start_dir = _HOME
     if sys.platform.startswith('linux'):
         dialog = QFileDialog(parent, title)
         dialog.setFileMode(QFileDialog.FileMode.Directory)
