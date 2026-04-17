@@ -179,7 +179,6 @@ class GamesTab(QWidget):
     
     def start_session(self):
         """Start new gaming session"""
-        from src.utils.network_utils import get_local_ip
         import time
         import sys
         
@@ -250,7 +249,7 @@ class GamesTab(QWidget):
             spec.loader.exec_module(server_module)
             self.flask_app = server_module.app
             
-            ip = get_local_ip()
+            ip = self._get_selected_ip()
             url = f"http://{ip}:{port}"
             
             def run_server():
@@ -289,6 +288,14 @@ class GamesTab(QWidget):
             self.status_label.setText("فشل التشغيل")
             self.status_label.setStyleSheet("font-size: 14px; color: #e74c3c; margin: 10px;")
             QMessageBox.critical(self, "خطأ في تشغيل الخادم", f"فشل تشغيل الخادم:\n\n{str(e)}")
+    
+    def _get_selected_ip(self):
+        """Get IP from main window header network selector"""
+        main = self.window()
+        if hasattr(main, 'get_selected_ip'):
+            return main.get_selected_ip()
+        from src.utils.network_utils import get_local_ip
+        return get_local_ip()
     
     def stop_session(self):
         """Stop current session and server"""

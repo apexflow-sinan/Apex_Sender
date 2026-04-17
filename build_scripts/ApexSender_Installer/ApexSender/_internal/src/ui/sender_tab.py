@@ -3,7 +3,7 @@ import threading
 import qtawesome as qta
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QProgressBar, QFrame, QFileDialog, QMessageBox, QComboBox
+    QPushButton, QProgressBar, QFrame, QFileDialog, QMessageBox, QComboBox, QTextEdit
 )
 from PyQt6.QtCore import Qt, pyqtSlot
 
@@ -35,30 +35,26 @@ class SenderTab(QWidget):
         
         # IP input card
         card = QFrame(objectName="card")
+        card.setMaximumWidth(500)
         card_layout = QVBoxLayout(card)
         
-        # IP label with history
-        ip_label_layout = QHBoxLayout()
-        ip_label_layout.addWidget(QLabel("عنوان IP للمستقبل:"))
+        LABEL_W = 90
         
-        # IP history dropdown (small)
-        self.ip_combo = QComboBox()
-        self.ip_combo.addItem("اختر من السجل...")
-        self.ip_combo.addItems(self.settings_manager.get("ip_history", []))
-        self.ip_combo.setMaximumWidth(150)
-        self.ip_combo.currentTextChanged.connect(self.on_ip_selected)
-        ip_label_layout.addWidget(self.ip_combo)
-        ip_label_layout.addStretch()
-        card_layout.addLayout(ip_label_layout)
+        # IP input row
+        ip_row = QHBoxLayout()
+        ip_icon = QLabel()
+        ip_icon.setPixmap(qta.icon('fa5s.map-marker-alt').pixmap(16, 16))
+        ip_icon.setFixedWidth(20)
+        ip_row.addWidget(ip_icon)
+        ip_label = QLabel("العنوان:")
+        ip_label.setFixedWidth(LABEL_W)
+        ip_row.addWidget(ip_label)
         
-        # IP boxes
         ip_parts = get_local_ip().split('.')
-        ip_layout = QHBoxLayout()
         self.ip_boxes = []
-        
         for i in range(4):
             box = QLineEdit()
-            box.setMaximumWidth(60)
+            box.setFixedWidth(55)
             box.setAlignment(Qt.AlignmentFlag.AlignCenter)
             box.setMaxLength(3)
             if i < 3:
@@ -67,13 +63,32 @@ class SenderTab(QWidget):
                 box.setPlaceholderText("?")
             box.textChanged.connect(self.check_ip_complete)
             self.ip_boxes.append(box)
-            ip_layout.addWidget(box)
+            ip_row.addWidget(box)
             if i < 3:
-                ip_layout.addWidget(QLabel("."))
+                dot = QLabel(".")
+                dot.setFixedWidth(10)
+                dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                ip_row.addWidget(dot)
+        ip_row.addStretch()
+        card_layout.addLayout(ip_row)
         
-        ip_layout.addStretch()
-        card_layout.addLayout(ip_layout)
-        layout.addWidget(card)
+        # IP history row
+        hist_row = QHBoxLayout()
+        hist_icon = QLabel()
+        hist_icon.setPixmap(qta.icon('fa5s.history').pixmap(16, 16))
+        hist_icon.setFixedWidth(20)
+        hist_row.addWidget(hist_icon)
+        hist_label = QLabel("السجل:")
+        hist_label.setFixedWidth(LABEL_W)
+        hist_row.addWidget(hist_label)
+        self.ip_combo = QComboBox()
+        self.ip_combo.addItem("اختر من السجل...")
+        self.ip_combo.addItems(self.settings_manager.get("ip_history", []))
+        self.ip_combo.currentTextChanged.connect(self.on_ip_selected)
+        hist_row.addWidget(self.ip_combo)
+        card_layout.addLayout(hist_row)
+        
+        layout.addWidget(card, alignment=Qt.AlignmentFlag.AlignHCenter)
         
         # Buttons
         btn_layout = QHBoxLayout()
@@ -97,7 +112,35 @@ class SenderTab(QWidget):
         self.send_folder_btn.setMaximumWidth(180)
         btn_layout.addWidget(self.send_folder_btn)
         
+        self.send_text_btn = QPushButton(qta.icon('fa5s.comment'), " إرسال نص")
+        self.send_text_btn.clicked.connect(self._toggle_text_input)
+        self.send_text_btn.setEnabled(False)
+        self.send_text_btn.setMaximumWidth(180)
+        btn_layout.addWidget(self.send_text_btn)
+        
         layout.addLayout(btn_layout)
+        
+        # Text send section
+        self.text_card = QFrame(objectName="card")
+        self.text_card.setVisible(False)
+        text_card_layout = QVBoxLayout(self.text_card)
+        self.text_input = QTextEdit()
+        self.text_input.setPlaceholderText("اكتب النص هنا...")
+        self.text_input.setMaximumHeight(100)
+        text_card_layout.addWidget(self.text_input)
+        text_btn_row = QHBoxLayout()
+        send_text_now_btn = QPushButton(qta.icon('fa5s.paper-plane'), " إرسال")
+        send_text_now_btn.setMaximumWidth(120)
+        send_text_now_btn.clicked.connect(self._do_send_text)
+        text_btn_row.addWidget(send_text_now_btn)
+        close_text_btn = QPushButton(qta.icon('fa5s.times'), " إغلاق")
+        close_text_btn.setObjectName("CancelButton")
+        close_text_btn.setMaximumWidth(120)
+        close_text_btn.clicked.connect(lambda: self.text_card.setVisible(False))
+        text_btn_row.addWidget(close_text_btn)
+        text_btn_row.addStretch()
+        text_card_layout.addLayout(text_btn_row)
+        layout.addWidget(self.text_card)
         
         # Cancel button
         self.cancel_btn = QPushButton(qta.icon('fa5s.times'), " إلغاء")
@@ -117,12 +160,23 @@ class SenderTab(QWidget):
         layout.addWidget(self.speed_label)
         layout.addStretch()
     
+    def on_network_changed(self, ip):
+        """Update IP prefix when header network changes"""
+        if ip:
+            parts = ip.split('.')
+            for i in range(3):
+                if i < len(parts):
+                    self.ip_boxes[i].setText(parts[i])
+            self.ip_boxes[3].clear()
+            self.ip_boxes[3].setFocus()
+    
     def check_ip_complete(self):
         """Check if IP is complete and enable/disable buttons"""
         is_complete = all([box.text().strip() for box in self.ip_boxes])
         self.send_file_btn.setEnabled(is_complete)
         self.send_files_btn.setEnabled(is_complete)
         self.send_folder_btn.setEnabled(is_complete)
+        self.send_text_btn.setEnabled(is_complete)
     
     def on_ip_selected(self, ip):
         """Handle IP selection from combo"""
@@ -329,6 +383,7 @@ class SenderTab(QWidget):
             self.send_file_btn.setEnabled(False)
             self.send_files_btn.setEnabled(False)
             self.send_folder_btn.setEnabled(False)
+            self.send_text_btn.setEnabled(False)
     
     def _activate_sender_tab(self):
         """Activate sender tab if not active"""
@@ -374,6 +429,26 @@ class SenderTab(QWidget):
         notification.show()
         
         QTimer.singleShot(3000, notification.deleteLater)
+    
+    def _toggle_text_input(self):
+        """Toggle text input visibility"""
+        self.text_card.setVisible(not self.text_card.isVisible())
+        if self.text_card.isVisible():
+            self.text_input.setFocus()
+    
+    def _do_send_text(self):
+        """Send text as a temp file with special marker"""
+        text = self.text_input.toPlainText().strip()
+        if not text:
+            QMessageBox.warning(self, "تنبيه", "اكتب نصاً أولاً")
+            return
+        import os, tempfile
+        tmp = os.path.join(tempfile.gettempdir(), "__APEX_TEXT__")
+        with open(tmp, 'w', encoding='utf-8') as f:
+            f.write(text)
+        self.text_card.setVisible(False)
+        self.text_input.clear()
+        self._send_files([tmp], is_temp=True)
     
     def cleanup(self):
         """Cleanup on close"""

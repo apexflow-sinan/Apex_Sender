@@ -36,26 +36,6 @@ class ReceiverTab(QWidget):
         """Setup UI"""
         layout = QVBoxLayout(self)
         
-        # Status card
-        card = QFrame(objectName="card")
-        card_layout = QVBoxLayout(card)
-        
-        # Status icon and text
-        status_layout = QHBoxLayout()
-        self.status_icon = QLabel()
-        self.status_icon.setPixmap(qta.icon('fa5s.download', color='#2ecc71').pixmap(32, 32))
-        status_layout.addWidget(self.status_icon)
-        
-        status_text_layout = QVBoxLayout()
-        status_text_layout.addWidget(QLabel("حالة الاستقبال:", objectName="CardTitle"))
-        self.status_label = QLabel("جاهز لاستقبال الملفات")
-        status_text_layout.addWidget(self.status_label)
-        status_layout.addLayout(status_text_layout)
-        status_layout.addStretch()
-        
-        card_layout.addLayout(status_layout)
-        layout.addWidget(card)
-        
         # Save directory
         dir_card = QFrame(objectName="card")
         dir_layout = QVBoxLayout(dir_card)

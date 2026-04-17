@@ -10,6 +10,19 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+def get_all_ips():
+    """Get all network interfaces with their IPs (name, ip)"""
+    results = []
+    try:
+        import psutil
+        for name, addrs in psutil.net_if_addrs().items():
+            for addr in addrs:
+                if addr.family == socket.AF_INET and not addr.address.startswith('127.') and not addr.address.startswith('169.254.'):
+                    results.append((name, addr.address))
+    except Exception:
+        results.append(("Default", get_local_ip()))
+    return results if results else [("Default", get_local_ip())]
+
 def check_connection(host, port, timeout=3):
     """Check if connection to host:port is possible"""
     try:

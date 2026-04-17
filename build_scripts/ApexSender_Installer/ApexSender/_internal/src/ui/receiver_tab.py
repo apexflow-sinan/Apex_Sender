@@ -5,13 +5,14 @@ from datetime import datetime
 import qtawesome as qta
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QProgressBar, QFrame, QMessageBox, QFileDialog, QScrollArea
+    QProgressBar, QFrame, QMessageBox, QFileDialog, QScrollArea, QApplication
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot
 from src.core.status_manager import AppStatus
 from src.utils.file_utils import extract_zip
 from src.utils.sound_utils import play_success_sound, play_notification_sound
 from src.utils.file_dialog_utils import get_existing_directory
+from src.widgets.file_list_item import ReceivedFileItem
 
 class ReceiverTab(QWidget):
     """Receiver tab widget"""
@@ -34,26 +35,6 @@ class ReceiverTab(QWidget):
     def setup_ui(self):
         """Setup UI"""
         layout = QVBoxLayout(self)
-        
-        # Status card
-        card = QFrame(objectName="card")
-        card_layout = QVBoxLayout(card)
-        
-        # Status icon and text
-        status_layout = QHBoxLayout()
-        self.status_icon = QLabel()
-        self.status_icon.setPixmap(qta.icon('fa5s.download', color='#2ecc71').pixmap(32, 32))
-        status_layout.addWidget(self.status_icon)
-        
-        status_text_layout = QVBoxLayout()
-        status_text_layout.addWidget(QLabel("حالة الاستقبال:", objectName="CardTitle"))
-        self.status_label = QLabel("جاهز لاستقبال الملفات")
-        status_text_layout.addWidget(self.status_label)
-        status_layout.addLayout(status_text_layout)
-        status_layout.addStretch()
-        
-        card_layout.addLayout(status_layout)
-        layout.addWidget(card)
         
         # Save directory
         dir_card = QFrame(objectName="card")
@@ -335,11 +316,31 @@ class ReceiverTab(QWidget):
             "filename": filename,
             "filepath": filepath,
             "timestamp": datetime.now().isoformat(),
-            "size": os.path.getsize(filepath) if os.path.exists(filepath) else 0
+            "size": os.path.getsize(filepath) if os.path.exists(filepath) else 0,
+            "type": "file",
+            "text": ""
         }
         self.received_files.insert(0, file_info)
         self.save_received_files()
         self.delete_files_btn.setEnabled(True)
+        self.refresh_files_list()
+    
+    @pyqtSlot(str)
+    def add_received_text(self, text):
+        """Add received text message to list"""
+        file_info = {
+            "filename": "",
+            "filepath": "",
+            "timestamp": datetime.now().isoformat(),
+            "size": 0,
+            "type": "text",
+            "text": text
+        }
+        self.received_files.insert(0, file_info)
+        self.save_received_files()
+        self.delete_files_btn.setEnabled(True)
+        self.refresh_files_list()
+        play_notification_sound()
     
     def refresh_files_list(self):
         """Refresh the files list display"""
@@ -358,50 +359,18 @@ class ReceiverTab(QWidget):
     
     def add_file_item(self, file_info):
         """Add a file item to the list"""
-        from src.utils.system_utils import open_file_or_folder
-        
-        item_frame = QFrame()
-        item_frame.setObjectName("fileItem")
-        item_layout = QVBoxLayout(item_frame)
-        item_layout.setSpacing(5)
-        
-        # File name with icon
-        name_layout = QHBoxLayout()
-        icon = self.get_file_icon(file_info["filename"])
-        name_layout.addWidget(QLabel(icon))
-        name_label = QLabel(file_info["filename"])
-        name_label.setWordWrap(True)
-        name_layout.addWidget(name_label, 1)
-        item_layout.addLayout(name_layout)
-        
-        # Time
-        time_str = self.format_time(file_info["timestamp"])
-        time_label = QLabel(time_str)
-        time_label.setStyleSheet("color: #888; font-size: 11px;")
-        item_layout.addWidget(time_label)
-        
-        # Buttons
-        btn_layout = QHBoxLayout()
-        
-        open_file_btn = QPushButton("فتح الملف")
-        open_file_btn.setMaximumWidth(120)
-        open_file_btn.clicked.connect(lambda: open_file_or_folder(file_info["filepath"]))
-        btn_layout.addWidget(open_file_btn)
-        
-        open_folder_btn = QPushButton("فتح المجلد")
-        open_folder_btn.setMaximumWidth(120)
-        open_folder_btn.clicked.connect(lambda: open_file_or_folder(os.path.dirname(file_info["filepath"])))
-        btn_layout.addWidget(open_folder_btn)
-        
-        delete_btn = QPushButton(qta.icon('fa5s.trash', color='#e74c3c'), "")
-        delete_btn.setMaximumWidth(40)
-        delete_btn.setToolTip("حذف الملف")
-        delete_btn.clicked.connect(lambda: self.delete_single_file(file_info, item_frame))
-        btn_layout.addWidget(delete_btn)
-        
-        item_layout.addLayout(btn_layout)
-        
-        self.files_list_layout.insertWidget(0, item_frame)
+        file_info["_time_str"] = self.format_time(file_info["timestamp"])
+        is_text = file_info.get("type") == "text"
+        on_delete = self._delete_text_item if is_text else self.delete_single_file
+        item = ReceivedFileItem(file_info, on_delete)
+        self.files_list_layout.insertWidget(0, item)
+    
+    def _delete_text_item(self, file_info, item_frame):
+        """Delete a text message from list"""
+        if file_info in self.received_files:
+            self.received_files.remove(file_info)
+            self.save_received_files()
+        item_frame.deleteLater()
     
     def get_file_icon(self, filename):
         """Get icon based on file extension"""

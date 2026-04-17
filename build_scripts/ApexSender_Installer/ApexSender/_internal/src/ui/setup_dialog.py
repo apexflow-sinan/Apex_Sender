@@ -7,6 +7,8 @@ from src.core.firewall_helper import FirewallHelper
 from src.core.config_manager import ConfigManager
 from src.core.settings_manager import SettingsManager
 from src.core.platform_manager import PlatformManager
+from src.core.service_worker import ServiceWorker
+from src.config.theme_styles import get_setup_dialog_style
 from src.utils.network_utils import get_local_ip
 from src.widgets.loading_indicator import LoadingIndicator
 
@@ -160,7 +162,7 @@ class SetupDialog(QDialog):
         layout = QHBoxLayout()
         layout.setSpacing(10)
         
-        cancel_btn = QPushButton(qta.icon('fa5s.times'), " إلغاء")
+        cancel_btn = QPushButton(qta.icon('fa5s.sign-out-alt'), " خروج")
         cancel_btn.clicked.connect(self.reject)
         cancel_btn.setObjectName("cancelButton")
         layout.addWidget(cancel_btn)
@@ -187,54 +189,40 @@ class SetupDialog(QDialog):
             print(f"Warning loading settings: {e}")
     
     def check_firewall(self):
+        self._set_buttons_enabled(False)
         self.loading.show_indicator()
-        QTimer.singleShot(50, self._do_check_firewall)
+        self._worker = ServiceWorker("check_firewall", self.config)
+        self._worker.finished.connect(self._on_check_firewall_done)
+        self._worker.start()
     
-    def _do_check_firewall(self):
-        try:
-            ports = [self.config.get('web_port', 8080), self.config.get('network_port', 9999)]
-            results = FirewallHelper.check_all_ports(ports)
-            
-            all_configured = all(results.values())
-            
-            if all_configured:
-                self.firewall_status_label.setText("✅ جدار الحماية مُعد بشكل صحيح")
-                self.firewall_status_label.setStyleSheet("color: green;")
-            else:
-                missing = [str(p) for p, configured in results.items() if not configured]
-                self.firewall_status_label.setText(f"⚠️ المنافذ التالية تحتاج إعداد: {', '.join(missing)}")
-                self.firewall_status_label.setStyleSheet("color: orange;")
-        finally:
-            self.loading.hide_indicator()
+    def _on_check_firewall_done(self, success, msg):
+        self.loading.hide_indicator()
+        self._set_buttons_enabled(True)
+        self.firewall_status_label.setText(msg)
+        self.firewall_status_label.setStyleSheet("color: green;" if success else "color: orange;")
     
     def add_firewall_rules(self):
-        platform = PlatformManager.get_platform()
-        
         if not FirewallHelper.is_admin():
-            if platform == "windows":
-                msg = "يجب تشغيل البرنامج كمسؤول (Administrator) لإضافة قواعد جدار الحماية"
-            else:
-                msg = "يجب تشغيل البرنامج بصلاحيات الجذر (sudo) لإضافة قواعد جدار الحماية"
+            platform = PlatformManager.get_platform()
+            msg = "يجب تشغيل البرنامج كمسؤول (Administrator) لإضافة قواعد جدار الحماية" if platform == "windows" else "يجب تشغيل البرنامج بصلاحيات الجذر (sudo) لإضافة قواعد جدار الحماية"
             QMessageBox.warning(self, "تحذير", msg)
             return
         
+        self._set_buttons_enabled(False)
         self.loading.show_indicator()
-        QTimer.singleShot(50, self._do_add_firewall)
+        self._worker = ServiceWorker("add_firewall", self.config)
+        self._worker.finished.connect(self._on_add_firewall_done)
+        self._worker.start()
     
-    def _do_add_firewall(self):
-        try:
-            ports = [self.config.get('web_port', 8080), self.config.get('network_port', 9999)]
-            success, results = FirewallHelper.add_all_rules(ports)
-            
-            if success:
-                QMessageBox.information(self, "نجح", "تم إضافة قواعد جدار الحماية بنجاح")
-                self.config.set('firewall_configured', True)
-            else:
-                QMessageBox.warning(self, "خطأ", "فشل في إضافة بعض القواعد")
-            
-            self.check_firewall()
-        finally:
-            self.loading.hide_indicator()
+    def _on_add_firewall_done(self, success, msg):
+        self.loading.hide_indicator()
+        self._set_buttons_enabled(True)
+        if success:
+            QMessageBox.information(self, "نجح", msg)
+            self.config.set('firewall_configured', True)
+        else:
+            QMessageBox.warning(self, "خطأ", msg)
+        self.check_firewall()
     
     def update_service_status(self):
         try:
@@ -302,49 +290,36 @@ class SetupDialog(QDialog):
     
     def install_service(self):
         try:
-            platform = PlatformManager.get_platform()
-            
             if not FirewallHelper.is_admin():
-                if platform == "windows":
-                    msg = "يجب تشغيل البرنامج كمسؤول (Administrator) لتثبيت الخدمة"
-                else:
-                    msg = "يجب تشغيل البرنامج بصلاحيات الجذر (sudo) لتثبيت الخدمة"
+                platform = PlatformManager.get_platform()
+                msg = "يجب تشغيل البرنامج كمسؤول (Administrator) لتثبيت الخدمة" if platform == "windows" else "يجب تشغيل البرنامج بصلاحيات الجذر (sudo) لتثبيت الخدمة"
                 QMessageBox.warning(self, "تحذير", msg)
                 return
             
+            self._set_buttons_enabled(False)
             self.loading.show_indicator()
-            QTimer.singleShot(50, self._do_install_service)
+            self.service_status_label.setText("⏳ جاري تثبيت الخدمة...")
+            self.service_status_label.setStyleSheet("color: orange;")
+            self._worker = ServiceWorker("install")
+            self._worker.finished.connect(self._on_install_done)
+            self._worker.start()
         except Exception as e:
             QMessageBox.critical(self, "خطأ", f"خطأ: {str(e)}")
     
-    def _do_install_service(self):
-        try:
-            from src.service.cross_platform_service import CrossPlatformService
-            service = CrossPlatformService()
-            success, msg = service.install()
-            
-            if success:
-                QMessageBox.information(self, "نجح", msg)
-            else:
-                QMessageBox.warning(self, "خطأ", msg)
-            
-            self.update_service_status()
-        except ImportError:
-            QMessageBox.warning(self, "خطأ", "خدمة الخلفية غير متوفرة في هذا الإصدار")
-        except Exception as e:
-            QMessageBox.critical(self, "خطأ", f"فشل تثبيت الخدمة:\n{str(e)}")
-        finally:
-            self.loading.hide_indicator()
+    def _on_install_done(self, success, msg):
+        self.loading.hide_indicator()
+        self._set_buttons_enabled(True)
+        if success:
+            QMessageBox.information(self, "نجح", msg)
+        else:
+            QMessageBox.warning(self, "خطأ", msg)
+        self.update_service_status()
     
     def uninstall_service(self):
         try:
-            platform = PlatformManager.get_platform()
-            
             if not FirewallHelper.is_admin():
-                if platform == "windows":
-                    msg = "يجب تشغيل البرنامج كمسؤول (Administrator) لإلغاء تثبيت الخدمة"
-                else:
-                    msg = "يجب تشغيل البرنامج بصلاحيات الجذر (sudo) لإلغاء تثبيت الخدمة"
+                platform = PlatformManager.get_platform()
+                msg = "يجب تشغيل البرنامج كمسؤول (Administrator) لإلغاء تثبيت الخدمة" if platform == "windows" else "يجب تشغيل البرنامج بصلاحيات الجذر (sudo) لإلغاء تثبيت الخدمة"
                 QMessageBox.warning(self, "تحذير", msg)
                 return
             
@@ -352,33 +327,35 @@ class SetupDialog(QDialog):
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             
             if reply == QMessageBox.StandardButton.Yes:
+                self._set_buttons_enabled(False)
                 self.loading.show_indicator()
-                QTimer.singleShot(50, self._do_uninstall_service)
+                self.service_status_label.setText("⏳ جاري إلغاء تثبيت الخدمة...")
+                self.service_status_label.setStyleSheet("color: orange;")
+                self._worker = ServiceWorker("uninstall")
+                self._worker.finished.connect(self._on_uninstall_done)
+                self._worker.start()
         except Exception as e:
             QMessageBox.critical(self, "خطأ", f"خطأ: {str(e)}")
     
-    def _do_uninstall_service(self):
-        try:
-            from src.service.cross_platform_service import CrossPlatformService
-            service = CrossPlatformService()
-            success, msg = service.uninstall()
-            
-            if success:
-                QMessageBox.information(self, "نجح", msg)
-            else:
-                QMessageBox.warning(self, "خطأ", msg)
-            
-            self.update_service_status()
-        except ImportError:
-            QMessageBox.warning(self, "خطأ", "خدمة الخلفية غير متوفرة في هذا الإصدار")
-        except Exception as e:
-            QMessageBox.critical(self, "خطأ", f"فشل إلغاء تثبيت الخدمة:\n{str(e)}")
-        finally:
-            self.loading.hide_indicator()
+    def _on_uninstall_done(self, success, msg):
+        self.loading.hide_indicator()
+        self._set_buttons_enabled(True)
+        if success:
+            QMessageBox.information(self, "نجح", msg)
+        else:
+            QMessageBox.warning(self, "خطأ", msg)
+        self.update_service_status()
     
     def save_settings(self):
         self.apply_settings()
         self.accept()
+    
+    def _set_buttons_enabled(self, enabled):
+        """Enable/disable all action buttons"""
+        self.check_firewall_btn.setEnabled(enabled)
+        self.add_firewall_btn.setEnabled(enabled)
+        self.install_service_btn.setEnabled(enabled)
+        self.uninstall_service_btn.setEnabled(enabled)
     
     def apply_settings(self):
         try:
@@ -407,181 +384,4 @@ class SetupDialog(QDialog):
     def apply_theme(self):
         """Apply theme based on settings"""
         is_dark = self.settings_manager.get("dark_mode", False)
-        
-        if is_dark:
-            self.setStyleSheet("""
-                QDialog {
-                    background: #1e1e2e;
-                    color: #cdd6f4;
-                }
-                QLabel {
-                    color: #cdd6f4;
-                }
-                QLabel#headerLabel {
-                    color: #667eea;
-                }
-                QGroupBox {
-                    font-weight: bold;
-                    font-size: 13px;
-                    border: 2px solid #45475a;
-                    border-radius: 8px;
-                    margin-top: 10px;
-                    padding-top: 10px;
-                    color: #cdd6f4;
-                }
-                QGroupBox::title {
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px;
-                }
-                QCheckBox {
-                    color: #cdd6f4;
-                    spacing: 8px;
-                }
-                QCheckBox::indicator {
-                    width: 18px;
-                    height: 18px;
-                    border-radius: 4px;
-                    border: 2px solid #45475a;
-                    background: #313244;
-                }
-                QCheckBox::indicator:checked {
-                    background: #667eea;
-                    border-color: #667eea;
-                }
-                QPushButton#actionButton {
-                    background: #313244;
-                    color: #cdd6f4;
-                    border: 1px solid #45475a;
-                    padding: 8px 15px;
-                    border-radius: 5px;
-                    font-size: 12px;
-                }
-                QPushButton#actionButton:hover {
-                    background: #45475a;
-                    border-color: #667eea;
-                }
-                QPushButton#saveButton {
-                    background: #667eea;
-                    color: white;
-                    border: none;
-                    padding: 10px 25px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                    font-size: 13px;
-                }
-                QPushButton#saveButton:hover {
-                    background: #5568d3;
-                }
-                QPushButton#applyButton {
-                    background: #27ae60;
-                    color: white;
-                    border: none;
-                    padding: 10px 25px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                    font-size: 13px;
-                }
-                QPushButton#applyButton:hover {
-                    background: #229954;
-                }
-                QPushButton#cancelButton {
-                    background: #45475a;
-                    color: #cdd6f4;
-                    border: none;
-                    padding: 10px 25px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                    font-size: 13px;
-                }
-                QPushButton#cancelButton:hover {
-                    background: #585b70;
-                }
-            """)
-        else:
-            self.setStyleSheet("""
-                QDialog {
-                    background: white;
-                    color: #2c3e50;
-                }
-                QLabel#headerLabel {
-                    color: #667eea;
-                }
-                QGroupBox {
-                    font-weight: bold;
-                    font-size: 13px;
-                    border: 2px solid #e0e0e0;
-                    border-radius: 8px;
-                    margin-top: 10px;
-                    padding-top: 10px;
-                    color: #2c3e50;
-                }
-                QGroupBox::title {
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px;
-                }
-                QCheckBox {
-                    color: #2c3e50;
-                    spacing: 8px;
-                }
-                QCheckBox::indicator {
-                    width: 18px;
-                    height: 18px;
-                    border-radius: 4px;
-                    border: 2px solid #bdc3c7;
-                    background: white;
-                }
-                QCheckBox::indicator:checked {
-                    background: #667eea;
-                    border-color: #667eea;
-                }
-                QPushButton#actionButton {
-                    background: #f8f9fa;
-                    color: #2c3e50;
-                    border: 1px solid #dee2e6;
-                    padding: 8px 15px;
-                    border-radius: 5px;
-                    font-size: 12px;
-                }
-                QPushButton#actionButton:hover {
-                    background: #e9ecef;
-                    border-color: #667eea;
-                }
-                QPushButton#saveButton {
-                    background: #667eea;
-                    color: white;
-                    border: none;
-                    padding: 10px 25px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                    font-size: 13px;
-                }
-                QPushButton#saveButton:hover {
-                    background: #5568d3;
-                }
-                QPushButton#applyButton {
-                    background: #27ae60;
-                    color: white;
-                    border: none;
-                    padding: 10px 25px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                    font-size: 13px;
-                }
-                QPushButton#applyButton:hover {
-                    background: #229954;
-                }
-                QPushButton#cancelButton {
-                    background: #95a5a6;
-                    color: white;
-                    border: none;
-                    padding: 10px 25px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                    font-size: 13px;
-                }
-                QPushButton#cancelButton:hover {
-                    background: #7f8c8d;
-                }
-            """)
+        self.setStyleSheet(get_setup_dialog_style(is_dark))

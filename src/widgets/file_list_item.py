@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QScrollArea, QApplication
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 import qtawesome as qta
 
 
@@ -43,9 +43,9 @@ class ReceivedFileItem(QFrame):
         bottom.addWidget(time_label)
         bottom.addStretch()
 
-        copy_btn = QPushButton("نسخ")
-        copy_btn.setMaximumWidth(60)
-        copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(info.get("text", "")))
+        copy_btn = QPushButton(qta.icon('fa5s.copy'), " نسخ")
+        copy_btn.setMaximumWidth(80)
+        copy_btn.clicked.connect(lambda: self._copy_with_feedback(copy_btn, info.get("text", "")))
         bottom.addWidget(copy_btn)
 
         del_btn = QPushButton(qta.icon('fa5s.trash', color='#e74c3c'), "")
@@ -54,6 +54,19 @@ class ReceivedFileItem(QFrame):
         del_btn.clicked.connect(lambda: on_delete(info, self))
         bottom.addWidget(del_btn)
         layout.addLayout(bottom)
+
+    def _copy_with_feedback(self, btn, text):
+        QApplication.clipboard().setText(text)
+        original_icon = btn.icon()
+        original_text = btn.text()
+        btn.setIcon(qta.icon('fa5s.check', color='#2ecc71'))
+        btn.setText(" تم النسخ")
+        btn.setStyleSheet("color: #2ecc71; font-weight: bold;")
+        QTimer.singleShot(1500, lambda: (
+            btn.setIcon(original_icon),
+            btn.setText(original_text),
+            btn.setStyleSheet("")
+        ))
 
     def _build_file_item(self, layout, info, on_delete):
         from src.utils.system_utils import open_file_or_folder

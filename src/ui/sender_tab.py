@@ -35,30 +35,26 @@ class SenderTab(QWidget):
         
         # IP input card
         card = QFrame(objectName="card")
+        card.setMaximumWidth(500)
         card_layout = QVBoxLayout(card)
         
-        # IP label with history
-        ip_label_layout = QHBoxLayout()
-        ip_label_layout.addWidget(QLabel("عنوان IP للمستقبل:"))
+        LABEL_W = 90
         
-        # IP history dropdown (small)
-        self.ip_combo = QComboBox()
-        self.ip_combo.addItem("اختر من السجل...")
-        self.ip_combo.addItems(self.settings_manager.get("ip_history", []))
-        self.ip_combo.setMaximumWidth(150)
-        self.ip_combo.currentTextChanged.connect(self.on_ip_selected)
-        ip_label_layout.addWidget(self.ip_combo)
-        ip_label_layout.addStretch()
-        card_layout.addLayout(ip_label_layout)
+        # IP input row
+        ip_row = QHBoxLayout()
+        ip_icon = QLabel()
+        ip_icon.setPixmap(qta.icon('fa5s.map-marker-alt').pixmap(16, 16))
+        ip_icon.setFixedWidth(20)
+        ip_row.addWidget(ip_icon)
+        ip_label = QLabel("العنوان:")
+        ip_label.setFixedWidth(LABEL_W)
+        ip_row.addWidget(ip_label)
         
-        # IP boxes
         ip_parts = get_local_ip().split('.')
-        ip_layout = QHBoxLayout()
         self.ip_boxes = []
-        
         for i in range(4):
             box = QLineEdit()
-            box.setMaximumWidth(60)
+            box.setFixedWidth(55)
             box.setAlignment(Qt.AlignmentFlag.AlignCenter)
             box.setMaxLength(3)
             if i < 3:
@@ -67,13 +63,32 @@ class SenderTab(QWidget):
                 box.setPlaceholderText("?")
             box.textChanged.connect(self.check_ip_complete)
             self.ip_boxes.append(box)
-            ip_layout.addWidget(box)
+            ip_row.addWidget(box)
             if i < 3:
-                ip_layout.addWidget(QLabel("."))
+                dot = QLabel(".")
+                dot.setFixedWidth(10)
+                dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                ip_row.addWidget(dot)
+        ip_row.addStretch()
+        card_layout.addLayout(ip_row)
         
-        ip_layout.addStretch()
-        card_layout.addLayout(ip_layout)
-        layout.addWidget(card)
+        # IP history row
+        hist_row = QHBoxLayout()
+        hist_icon = QLabel()
+        hist_icon.setPixmap(qta.icon('fa5s.history').pixmap(16, 16))
+        hist_icon.setFixedWidth(20)
+        hist_row.addWidget(hist_icon)
+        hist_label = QLabel("السجل:")
+        hist_label.setFixedWidth(LABEL_W)
+        hist_row.addWidget(hist_label)
+        self.ip_combo = QComboBox()
+        self.ip_combo.addItem("اختر من السجل...")
+        self.ip_combo.addItems(self.settings_manager.get("ip_history", []))
+        self.ip_combo.currentTextChanged.connect(self.on_ip_selected)
+        hist_row.addWidget(self.ip_combo)
+        card_layout.addLayout(hist_row)
+        
+        layout.addWidget(card, alignment=Qt.AlignmentFlag.AlignHCenter)
         
         # Buttons
         btn_layout = QHBoxLayout()
@@ -144,6 +159,16 @@ class SenderTab(QWidget):
         layout.addWidget(self.progress_label)
         layout.addWidget(self.speed_label)
         layout.addStretch()
+    
+    def on_network_changed(self, ip):
+        """Update IP prefix when header network changes"""
+        if ip:
+            parts = ip.split('.')
+            for i in range(3):
+                if i < len(parts):
+                    self.ip_boxes[i].setText(parts[i])
+            self.ip_boxes[3].clear()
+            self.ip_boxes[3].setFocus()
     
     def check_ip_complete(self):
         """Check if IP is complete and enable/disable buttons"""

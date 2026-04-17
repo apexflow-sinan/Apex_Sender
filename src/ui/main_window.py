@@ -8,7 +8,7 @@ import ctypes
 import qtawesome as qta
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QTabWidget, QMessageBox, QFrame, QTextEdit, QCheckBox, QPushButton, QStatusBar, QScrollArea
+    QTabWidget, QMessageBox, QFrame, QTextEdit, QCheckBox, QPushButton, QStatusBar, QScrollArea, QComboBox
 )
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
@@ -18,7 +18,7 @@ from PyQt6.QtGui import QPixmap
 from src.config.styles import LIGHT_STYLESHEET, DARK_STYLESHEET
 from src.core.settings_manager import SettingsManager
 from src.core.status_manager import StatusManager, AppStatus
-from src.utils.network_utils import get_local_ip
+from src.utils.network_utils import get_local_ip, get_all_ips
 from src.ui.sender_tab import SenderTab
 from src.ui.receiver_tab import ReceiverTab
 from src.ui.web_tab import WebTab
@@ -180,31 +180,45 @@ class MainWindow(QMainWindow):
         title_bar = QWidget(objectName="TitleBar")
         layout = QVBoxLayout(title_bar)
         
-        # Title
-        title_hbox = QHBoxLayout()
-        title_hbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Title + Network selector in one row
+        header_hbox = QHBoxLayout()
         
-        # Use app icon if available, fallback to rocket icon
+        # Title (left side)
         icon_label = QLabel()
         if os.path.exists(ICON_FILE):
             pixmap = QPixmap(ICON_FILE)
             if not pixmap.isNull():
-                icon_label.setPixmap(pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                icon_label.setPixmap(pixmap.scaled(36, 36, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             else:
-                icon_label.setPixmap(qta.icon('fa5s.rocket', color='white').pixmap(48, 48))
+                icon_label.setPixmap(qta.icon('fa5s.rocket', color='white').pixmap(36, 36))
         else:
-            icon_label.setPixmap(qta.icon('fa5s.rocket', color='white').pixmap(48, 48))
-        title_hbox.addWidget(icon_label)
-        title_hbox.addWidget(QLabel("Apex Sender", objectName="TitleLabel"))
+            icon_label.setPixmap(qta.icon('fa5s.rocket', color='white').pixmap(36, 36))
+        header_hbox.addWidget(icon_label)
+        header_hbox.addWidget(QLabel("Apex Sender", objectName="TitleLabel"))
         
-        # IP
-        ip_hbox = QHBoxLayout()
-        ip_hbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ip_hbox.addWidget(QLabel(pixmap=qta.icon('fa5s.globe', color='#1abc9c').pixmap(16, 16)))
-        ip_hbox.addWidget(QLabel(f"IP: {get_local_ip()}", objectName="IPLabel"))
+        header_hbox.addStretch()
         
-        layout.addLayout(title_hbox)
-        layout.addLayout(ip_hbox)
+        # Network selector (right side)
+        header_hbox.addWidget(QLabel(pixmap=qta.icon('fa5s.network-wired', color='#1abc9c').pixmap(16, 16)))
+        self.net_combo = QComboBox()
+        self.net_combo.setObjectName("HeaderNetCombo")
+        networks = get_all_ips()
+        default_idx = 0
+        for i, (name, ip) in enumerate(networks):
+            self.net_combo.addItem(f"{name} — {ip}", ip)
+            if 'ethernet' in name.lower():
+                default_idx = i
+        if default_idx == 0:
+            for i, (name, _) in enumerate(networks):
+                if 'wi-fi' == name.lower() or 'wifi' in name.lower():
+                    default_idx = i
+                    break
+        self.net_combo.setCurrentIndex(default_idx)
+        self.net_combo.setMinimumWidth(220)
+        self.net_combo.currentIndexChanged.connect(self._on_network_changed)
+        header_hbox.addWidget(self.net_combo)
+        
+        layout.addLayout(header_hbox)
         
         return title_bar
     
@@ -237,10 +251,21 @@ class MainWindow(QMainWindow):
     def on_tab_changed(self, index: int):
         """Handle tab change"""
         if not self.status_manager.is_busy():
-            if index == 0:  # Sender tab
+            if index == 0:
                 self.status_manager.set_status(AppStatus.READY_TO_SEND)
-            else:  # Receiver tab
+            else:
                 self.status_manager.set_status(AppStatus.READY_TO_RECEIVE)
+    
+    def get_selected_ip(self):
+        """Get IP from header network selector"""
+        return self.net_combo.currentData() or get_local_ip()
+    
+    def _on_network_changed(self):
+        """Notify tabs when network selection changes"""
+        ip = self.get_selected_ip()
+        if hasattr(self, 'sender_tab'):
+            self.sender_tab.on_network_changed(ip)
+        self.log_message(f"الشبكة: {self.net_combo.currentText()}")
     
     def toggle_log(self):
         """Toggle log visibility"""
@@ -296,7 +321,7 @@ class MainWindow(QMainWindow):
         qr_btn.setFlat(True)
         qr_btn.setIcon(qta.icon('fa5s.qrcode', color='#1abc9c'))
         qr_btn.setToolTip("Show QR Code")
-        qr_btn.clicked.connect(lambda: show_qr_dialog(self, get_local_ip(), DEFAULT_PORT))
+        qr_btn.clicked.connect(lambda: show_qr_dialog(self, self.get_selected_ip(), DEFAULT_PORT))
         status_bar.addPermanentWidget(qr_btn)
         
         # Dark mode toggle

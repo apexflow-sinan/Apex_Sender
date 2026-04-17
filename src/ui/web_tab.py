@@ -35,9 +35,14 @@ class WebTab(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Title
-        self.title_label = QLabel("🌐 الوصول عبر الويب")
-        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.title_label)
+        title_layout = QHBoxLayout()
+        title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_icon = QLabel()
+        title_icon.setPixmap(qta.icon('fa5s.globe').pixmap(28, 28))
+        title_layout.addWidget(title_icon)
+        self.title_label = QLabel("الوصول عبر الويب")
+        title_layout.addWidget(self.title_label)
+        layout.addLayout(title_layout)
         
         # Status
         self.status_label = QLabel("الخادم متوقف")
@@ -83,6 +88,13 @@ class WebTab(QWidget):
         layout.addWidget(self.info_label)
         
         self.apply_theme()
+    
+    def _get_selected_ip(self):
+        """Get IP from main window header network selector"""
+        main = self.window()
+        if hasattr(main, 'get_selected_ip'):
+            return main.get_selected_ip()
+        return get_local_ip()
     
     def apply_theme(self):
         """Apply theme to web tab"""
@@ -220,7 +232,7 @@ class WebTab(QWidget):
             
             from web.server import start_server
             
-            ip = get_local_ip()
+            ip = self._get_selected_ip()
             url = f"http://{ip}:{port}"
             
             # Start server in thread
